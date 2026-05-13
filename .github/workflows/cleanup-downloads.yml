@@ -1,0 +1,52 @@
+name: Daily Cleanup of Downloaded Files
+
+on:
+  schedule:
+    - cron: '30 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Delete downloaded files
+        id: cleanup
+        run: |
+          if [ -d "downloads" ] && [ "$(ls -A downloads 2>/dev/null)" ]; then
+            echo "Existing files:"
+            ls -lah downloads/
+            echo ""
+            
+            rm -rf downloads/*
+            
+            echo "All files deleted."
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "downloads folder is empty or does not exist."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit changes
+        if: steps.cleanup.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add downloads/
+          git commit -m "Daily cleanup of downloaded files - $(date +'%Y-%m-%d')"
+          git push
+          echo "Cleanup completed and changes saved."
+
+      - name: Final report
+        if: steps.cleanup.outputs.changed == 'true'
+        run: |
+          echo "Daily Cleanup Report"
+          echo "Date: $(date +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "All downloaded files from today have been deleted."
